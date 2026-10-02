@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taven | Home</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="site-nav"></div>
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div class="row align-items-center g-5">
+          <div class="col-md-7 order-2 order-md-1">
+            <h1 class="mb-3">Delicious meals, made with love, only at Taven.</h1>
+            <p class="lead text-muted mb-4">Silog plates, creamy pasta, crispy sides, and cold drinks. Pick what you want and we will have it ready.</p>
+            <a href="order.html" class="btn btn-light-pill btn-lg px-4" id="orderBtn">Order now</a>
+            <a href="track.html" class="btn btn-outline-brand btn-lg px-4 ms-2">Track an order</a>
+            <div class="hero-bar"><div><b>34</b>dishes on the menu</div><div><b>Pickup or delivery</b>your choice at checkout</div></div>
+          </div>
+          <div class="col-md-5 order-1 order-md-2 text-center">
+            <img src="images/logo.png" alt="Taven Logo" class="plate" onerror="this.onerror=null;this.style.background='#1b1523'">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band py-5">
+      <div class="container"><div class="row align-items-center g-5">
+        <div class="col-md-6 text-center"><img src="images/Tapsilog.png" alt="Tapsilog" class="arch" onerror="this.onerror=null;this.src=FALLBACK"></div>
+        <div class="col-md-6">
+          <h2 class="section-title h2">Home-style plates, cooked in small batches.</h2>
+          <p class="text-muted">Every dish is made from scratch. Browse the menu, check what is in stock, and place your order in a few taps. Staff confirm and prepare it, and you can follow its status with your reference number.</p>
+          <a href="order.html" class="btn btn-outline-brand px-4">Browse the menu</a>
+        </div>
+      </div></div>
+    </section>
+
+    <section class="container py-5">
+      <h2 class="section-title">Popular at Taven</h2>
+      <div class="row g-4" id="popular"></div>
+      <div class="mt-4"><a href="order.html" class="btn btn-outline-brand px-4">See the full menu</a></div>
+    </section>
+
+    <section class="container pb-4">
+      <div class="row g-4 text-center">
+        <div class="col-md-4"><div class="soft-card p-4 h-100"><div class="feature-icon">🥬</div><h3 class="h5">Fresh ingredients</h3><p class="mb-0 text-muted">Every plate is made from scratch with ingredients we pick ourselves.</p></div></div>
+        <div class="col-md-4"><div class="soft-card p-4 h-100"><div class="feature-icon">🍳</div><h3 class="h5">Handcrafted meals</h3><p class="mb-0 text-muted">Home-style recipes, cooked in small batches so they taste right.</p></div></div>
+        <div class="col-md-4"><div class="soft-card p-4 h-100"><div class="feature-icon">🧾</div><h3 class="h5">Easy ordering</h3><p class="mb-0 text-muted">Add dishes to your cart, check out, and get a reference number to track your order.</p></div></div>
+      </div>
+    </section>
+  </main>
+  <div id="site-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

@@ -92,6 +92,18 @@ function saveCart(c) { localStorage.setItem('cart', JSON.stringify(c)); updateBa
 function updateBadge() {
   const n = getCart().reduce((s, i) => s + i.quantity, 0);
   document.querySelectorAll('.cart-count').forEach(e => { e.textContent = n; });
+  updateCartFab();
+}
+// Set an item's quantity from a typed value (clamped to 1..available stock)
+function setQty(i, value) {
+  const cart = getCart();
+  if (!cart[i]) return;
+  const stock = stockOf(cart[i].name);
+  let q = Math.floor(Number(value));
+  if (!(q >= 1)) q = 1;
+  if (q > stock) { toast(`Only ${stock} ${cart[i].name} in stock`); q = Math.max(1, stock); }
+  cart[i].quantity = q;
+  saveCart(cart);
 }
 function addToCart(name, price) {
   const cart = getCart();
@@ -100,6 +112,8 @@ function addToCart(name, price) {
   found ? found.quantity++ : cart.push({ name, price, quantity: 1 });
   saveCart(cart);
   toast(`${name} added to cart`);
+  const fab = $('#cart-fab');
+  if (fab) { fab.classList.remove('pop'); void fab.offsetWidth; fab.classList.add('pop'); }
 }
 function toast(msg) {
   let box = $('#toast-box');
@@ -118,6 +132,85 @@ function toast(msg) {
   new bootstrap.Toast(t, { delay: 1800 }).show();
 }
 
+/* ===== Theme (light / dark) — light is the default ===== */
+function getTheme() { try { return localStorage.getItem('theme') || 'light'; } catch { return 'light'; } }
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-bs-theme', t);
+  try { localStorage.setItem('theme', t); } catch { }
+  document.querySelectorAll('[data-theme-set]').forEach(b => {
+    b.classList.toggle('on', b.dataset.themeSet === t);
+    b.setAttribute('aria-pressed', b.dataset.themeSet === t);
+  });
+}
+
+/* ===== Floating cart button + cart drawer ===== */
+const NO_FAB_PAGES = ['summary.html', 'thankyou.html', 'admin.html'];
+function initCartFab() {
+  const page = decodeURIComponent(location.pathname.split('/').pop() || 'index.html');
+  if (NO_FAB_PAGES.includes(page)) return;
+  document.body.insertAdjacentHTML('beforeend', `
+    <button type="button" class="cart-fab d-none" id="cart-fab" aria-label="View cart">🛒<span class="fab-count" id="fab-count">0</span></button>
+    <div class="offcanvas offcanvas-bottom cart-sheet" tabindex="-1" id="cartSheet" aria-labelledby="cartSheetLabel">
+      <div class="offcanvas-header">
+        <h2 class="offcanvas-title h5 mb-0" id="cartSheetLabel">Your cart</h2>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body py-0" id="sheet-items"></div>
+      <div class="sheet-foot">
+        <div class="d-flex justify-content-between align-items-center mb-3"><span class="text-muted" id="sheet-count"></span><span class="price fs-5" id="sheet-total"></span></div>
+        <div class="d-flex gap-2"><button type="button" class="btn btn-outline-brand flex-fill" data-bs-dismiss="offcanvas">Add more</button><a href="summary.html" class="btn btn-brand flex-fill">Checkout</a></div>
+      </div>
+    </div>`);
+  const el = $('#cartSheet'), sheet = new bootstrap.Offcanvas(el);
+  $('#cart-fab').addEventListener('click', () => {
+    const wide = window.matchMedia('(min-width: 768px)').matches;
+    el.classList.toggle('offcanvas-end', wide);
+    el.classList.toggle('offcanvas-bottom', !wide);
+    renderSheet(); sheet.show();
+  });
+  const items = $('#sheet-items');
+  items.addEventListener('click', e => {
+    const b = e.target.closest('[data-sact]');
+    if (!b) return;
+    const cart = getCart(), i = Number(b.dataset.i);
+    if (b.dataset.sact === 'inc') { if (cart[i].quantity + 1 > stockOf(cart[i].name)) { toast(`Only ${stockOf(cart[i].name)} ${cart[i].name} in stock`); return; } cart[i].quantity++; }
+    if (b.dataset.sact === 'dec') { cart[i].quantity--; if (cart[i].quantity < 1) cart.splice(i, 1); }
+    if (b.dataset.sact === 'del') cart.splice(i, 1);
+    saveCart(cart); renderSheet();
+    if (!getCart().length) sheet.hide();
+  });
+  items.addEventListener('change', e => { if (e.target.matches('[data-sqty]')) { setQty(Number(e.target.dataset.sqty), e.target.value); renderSheet(); } });
+  updateCartFab();
+}
+function renderSheet() {
+  const box = $('#sheet-items');
+  if (!box) return;
+  const cart = getCart();
+  const count = cart.reduce((s, i) => s + i.quantity, 0), total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  box.innerHTML = cart.length ? cart.map((it, i) => `
+    <div class="sheet-item">
+      ${img(imgSrc(it.name), it.name)}
+      <div class="flex-grow-1" style="min-width:0"><div class="s-name">${it.name}</div><div class="price small">${money(it.price * it.quantity)}</div></div>
+      <div class="d-flex align-items-center gap-1">
+        <button class="btn btn-outline-brand qty-btn" data-sact="dec" data-i="${i}" aria-label="Decrease ${it.name}">−</button>
+        <input type="number" inputmode="numeric" min="1" class="form-control qty-input" value="${it.quantity}" data-sqty="${i}" aria-label="Quantity of ${it.name}">
+        <button class="btn btn-outline-brand qty-btn" data-sact="inc" data-i="${i}" aria-label="Increase ${it.name}">+</button>
+      </div>
+    </div>`).join('') : '<p class="text-center text-muted py-4 mb-0">Your cart is empty.</p>';
+  $('#sheet-count').textContent = `${count} item${count === 1 ? '' : 's'}`;
+  $('#sheet-total').textContent = money(total);
+}
+function updateCartFab() {
+  const fab = $('#cart-fab');
+  if (!fab) return;
+  const n = getCart().reduce((s, i) => s + i.quantity, 0);
+  $('#fab-count').textContent = n;
+  fab.classList.toggle('d-none', n === 0);
+  fab.setAttribute('aria-label', `View cart, ${n} item${n === 1 ? '' : 's'}`);
+  document.body.classList.toggle('fab-on', n > 0);
+}
+
 /* ===== Layout (sticky navbar + footer) ===== */
 function layout() {
   const page = decodeURIComponent(location.pathname.split('/').pop() || 'index.html');
@@ -132,12 +225,22 @@ function layout() {
         <div class="collapse navbar-collapse" id="navMenu">
           <ul class="navbar-nav ms-auto gap-lg-1 align-items-lg-center">
             ${links.map(([href, label]) => `<li class="nav-item"><a class="nav-link ${href === group ? 'active' : ''} ${href === 'admin.html' ? 'nav-staff ms-lg-2' : ''}" href="${href}">${href === 'summary.html' ? '🛒 ' : ''}${label}${href === 'summary.html' ? ' <span class="badge rounded-pill cart-count">0</span>' : ''}</a></li>`).join('')}
+            <li class="nav-item dropdown ms-lg-2 my-2 my-lg-0">
+              <button class="settings-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">⚙️ Settings</button>
+              <div class="dropdown-menu dropdown-menu-end settings-menu">
+                <div class="fw-semibold mb-1">Appearance</div>
+                <p class="small text-muted mb-2">Choose how Taven looks on this device.</p>
+                <div class="theme-switch"><button type="button" data-theme-set="light">☀️ Light</button><button type="button" data-theme-set="dark">🌙 Dark</button></div>
+              </div>
+            </li>
           </ul>
         </div>
       </div>
     </nav>`;
+  document.querySelectorAll('[data-theme-set]').forEach(b => b.addEventListener('click', () => applyTheme(b.dataset.themeSet)));
+  applyTheme(getTheme());
   const foot = $('#site-footer');
-  if (foot) foot.innerHTML = `<footer class="site-footer"><p class="mb-0">© 2025 TAVEN Foods &amp; Drinks. All rights reserved.</p></footer>`;
+  if (foot) foot.innerHTML = `<footer class="site-footer"><p class="mb-0">© 2026 TAVEN Foods &amp; Drinks. All rights reserved.</p></footer>`;
 }
 
 /* ===== Home ===== */
@@ -231,16 +334,16 @@ function initSummary() {
     $('#cart-empty').classList.toggle('d-none', cart.length > 0);
     $('#cart-panel').classList.toggle('d-none', cart.length === 0);
     list.innerHTML = cart.map((it, i) => `
-      <div class="cart-row d-flex align-items-center gap-3 p-3 mb-3">
-        ${img(imgSrc(it.name), it.name, 'rounded-3').replace('class="', 'style="width:64px;height:64px;object-fit:cover" class="')}
-        <div class="flex-grow-1"><div class="fw-semibold">${it.name}</div><div class="text-muted small">${money(it.price)} each · ${stockOf(it.name)} in stock</div></div>
-        <div class="d-flex align-items-center gap-2">
+      <div class="cart-row p-3 mb-3">
+        ${img(imgSrc(it.name), it.name, 'rounded-3 c-img')}
+        <div class="c-info"><div class="fw-semibold">${it.name}</div><div class="text-muted small">${money(it.price)} each · ${stockOf(it.name)} in stock</div></div>
+        <div class="c-qty d-flex align-items-center gap-2">
           <button class="btn btn-outline-brand qty-btn" data-act="dec" data-i="${i}" aria-label="Decrease ${it.name}">−</button>
-          <span class="fw-semibold" style="min-width:1.5rem;text-align:center">${it.quantity}</span>
+          <input type="number" inputmode="numeric" min="1" max="${stockOf(it.name)}" class="form-control qty-input" value="${it.quantity}" data-qty="${i}" aria-label="Quantity of ${it.name}">
           <button class="btn btn-outline-brand qty-btn" data-act="inc" data-i="${i}" aria-label="Increase ${it.name}">+</button>
         </div>
-        <div class="fw-bold price text-end" style="min-width:90px">${money(it.price * it.quantity)}</div>
-        <button class="btn btn-sm btn-outline-danger" data-act="del" data-i="${i}" aria-label="Remove ${it.name}">✕</button>
+        <div class="c-total fw-bold price text-end">${money(it.price * it.quantity)}</div>
+        <button class="c-del btn btn-sm btn-outline-danger" data-act="del" data-i="${i}" aria-label="Remove ${it.name}">✕</button>
       </div>`).join('');
     calc();
   };
@@ -255,6 +358,10 @@ function initSummary() {
     saveCart(cart);
     render();
   });
+  // Tap the number to type a quantity; applied when the field loses focus or Enter is pressed
+  list.addEventListener('change', e => { if (e.target.matches('[data-qty]')) { setQty(Number(e.target.dataset.qty), e.target.value); render(); } });
+  list.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('[data-qty]')) { e.preventDefault(); e.target.blur(); } });
+  list.addEventListener('focusin', e => { if (e.target.matches('[data-qty]')) e.target.select(); });
   $('#clear-cart').addEventListener('click', () => { saveCart([]); render(); });
   discSel.addEventListener('change', () => { custom.classList.toggle('d-none', discSel.value !== 'custom'); calc(); });
   [custom, pay].forEach(el => el.addEventListener('input', calc));
@@ -293,9 +400,9 @@ function receiptHTML(o) {
     <div class="ref-no mb-2">${esc(o.no)}</div>
     <div class="mb-3">${statusBadge(o.status)} <span class="small text-muted ms-2">${esc(o.type)} · ${esc(o.method)} · ${esc(o.paymentStatus)}</span></div>
     ${o.type === 'Delivery' ? `<p class="small text-muted">Deliver to: ${esc(o.address)} (${esc(o.phone)})</p>` : ''}
-    <table class="table table-sm align-middle receipt"><thead><tr><th>Item</th><th class="text-center">Qty</th><th class="text-end">Price</th><th class="text-end">Subtotal</th></tr></thead><tbody>
+    <div class="table-responsive"><table class="table table-sm align-middle receipt"><thead><tr><th>Item</th><th class="text-center">Qty</th><th class="text-end">Price</th><th class="text-end">Subtotal</th></tr></thead><tbody>
     ${o.items.map(i => `<tr><td>${esc(i.name)}</td><td class="text-center">${i.quantity}</td><td class="text-end">${money(i.price)}</td><td class="text-end">${money(i.price * i.quantity)}</td></tr>`).join('')}
-    </tbody></table>
+    </tbody></table></div>
     <dl class="row mb-0 receipt">
       <dt class="col-8 fw-normal">Subtotal</dt><dd class="col-4 text-end">${money(o.subtotal)}</dd>
       <dt class="col-8 fw-normal">Discount (${o.pct}%)</dt><dd class="col-4 text-end">-${money(o.discount)}</dd>
@@ -415,6 +522,7 @@ function initMember() {
 /* ===== Init ===== */
 document.addEventListener('DOMContentLoaded', () => {
   layout();
+  initCartFab();
   updateBadge();
   initHome(); initMenu(); initSummary(); initThanks(); initTrack(); initAdmin(); initDevelopers(); initMember();
 });
